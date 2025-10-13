@@ -8,6 +8,8 @@ scipy
 numpy
 pandas
 pydub
+transformers==4.27.0
+tokenizers==0.12.1
 
 
 langchain 
