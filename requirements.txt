@@ -1,15 +1,20 @@
-# Core
+# Core dependencies
 streamlit==1.29.0
-transformers==4.33.2
+transformers==4.33.2  
 torch>=2.0.0
+
+# Audio & tokenization related dependencies
 sentencepiece
 soundfile
 scipy
+pydub
+
+# Data handling libraries
 numpy
 pandas
-pydub
-transformers==4.27.0
+
+# Optional dependencies for AI-related tasks
+langchain
+
+# If you need specific tokenizer handling
 tokenizers==0.12.1
-
-
-langchain 
