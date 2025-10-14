@@ -16,4 +16,4 @@ pandas
 
 langchain
 
-tokenizers==0.12.1
+tokenizers==0.10.3
