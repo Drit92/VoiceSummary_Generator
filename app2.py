@@ -13,17 +13,11 @@ def load_summarizer():
     return pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
 
 @st.cache_resource
-def load_quiz_generator():
-    return pipeline("text2text-generation", model="koshkosh/quiz-generator")
-
-@st.cache_resource
-def load_flashcard_generator():
-    # This model is a question generation model suitable for flashcards question prompts
-    return pipeline("text2text-generation", model="vblagoje/bert-quiz-question-generator")
+def load_text_generator():
+    return pipeline("text2text-generation", model="t5-base", tokenizer="t5-base")
 
 summarizer = load_summarizer()
-quiz_generator = load_quiz_generator()
-flashcard_generator = load_flashcard_generator()
+text_generator = load_text_generator()
 
 st.title("Lecture Voice-to-Notes Generator")
 st.write("""
@@ -56,13 +50,13 @@ def generate_study_notes(text):
     return result[0]['summary_text']
 
 def generate_quiz(notes):
-    # Generate quiz questions from notes
-    result = quiz_generator(notes, max_length=512, do_sample=False)
+    prompt = f"generate quiz questions: {notes}"
+    result = text_generator(prompt, max_length=512, do_sample=False)
     return result[0]['generated_text']
 
 def generate_flashcards(notes):
-    # Generate flashcard questions from notes
-    result = flashcard_generator(notes, max_length=512, do_sample=False)
+    prompt = f"generate flashcards: {notes}"
+    result = text_generator(prompt, max_length=512, do_sample=False)
     return result[0]['generated_text']
 
 with st.form("upload_form"):
@@ -84,9 +78,8 @@ if submit and audio_file:
                 st.subheader("Summarized Study Notes")
                 st.write(notes)
 
-                # Buttons to generate quizzes and flashcards
                 if st.button("Generate Quiz"):
-                    with st.spinner("Generating quiz..."):
+                    with st.spinner("Generating quiz questions..."):
                         quiz_text = generate_quiz(notes)
                         st.subheader("Quiz Questions")
                         st.write(quiz_text)
@@ -94,7 +87,7 @@ if submit and audio_file:
                 if st.button("Generate Flashcards"):
                     with st.spinner("Generating flashcards..."):
                         flashcards_text = generate_flashcards(notes)
-                        st.subheader("Flashcards Questions")
+                        st.subheader("Flashcards")
                         st.write(flashcards_text)
             else:
                 st.info("Transcript is too short to summarize.")
