@@ -4,3 +4,4 @@ torch
 SpeechRecognition
 soundfile
 pydub
+google-genai
