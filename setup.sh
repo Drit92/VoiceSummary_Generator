@@ -1,18 +1,15 @@
 #!/bin/bash
 
-# Upgrade pip to the latest version
+
 pip install --upgrade pip
 
-# Install dependencies from requirements.txt
-pip install -r requirements.txt
 
-# Other setup commands can go here (if necessary)
-
+pip install --no-cache-dir --no-binary :all: -r requirements.txt
 
 
 mkdir -p ~/.streamlit/
 
-
+# Streamlit server configuration
 echo "\
 [server]\n\
 headless = true\n\
@@ -20,4 +17,3 @@ port = $PORT\n\
 enableCORS = false\n\
 \n\
 " > ~/.streamlit/config.toml
-
