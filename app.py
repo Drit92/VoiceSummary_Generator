@@ -1,37 +1,34 @@
 import streamlit as st
 import speech_recognition as sr
-from transformers import pipeline
 from pydub import AudioSegment
 import tempfile
 import datetime
 import os
+from google import genai  # Google Gemini API client
 
-st.set_page_config(page_title="Lecture Voice-to-Notes Generator", layout="centered")
+st.set_page_config(page_title="Lecture Voice-to-Notes Generator with Gemini", layout="centered")
 
-@st.cache_resource
-def load_summarizer():
-    return pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
-
-@st.cache_resource
-def load_text_generator():
-    return pipeline("text2text-generation", model="t5-base", tokenizer="t5-base")
-
-summarizer = load_summarizer()
-text_generator = load_text_generator()
+# Initialize Gemini client
+client = genai.Client()
 
 st.title("Lecture Voice-to-Notes Generator")
 st.write("""
-Upload your lecture audio recording, transcribe it, summarize notes, and generate quizzes and flashcards!
+Upload your lecture audio recording (wav, mp3, m4a, ogg), transcribe it, summarize notes, and generate quizzes and flashcards using Gemini API!
 """)
 
 def convert_to_wav(uploaded_file):
+    # Save uploaded file
     temp_input = tempfile.NamedTemporaryFile(delete=False)
     temp_input.write(uploaded_file.read())
     temp_input.flush()
 
+    # Convert to WAV
     temp_output = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
     audio = AudioSegment.from_file(temp_input.name)
     audio.export(temp_output.name, format="wav")
+
+    # Clean up input
+    os.unlink(temp_input.name)
     return temp_output.name
 
 def transcribe_audio(file_path):
@@ -45,32 +42,32 @@ def transcribe_audio(file_path):
         except sr.RequestError:
             return "Speech recognition service unavailable."
 
+def gemini_generate(prompt: str) -> str:
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",     # Use appropriate Gemini model name
+        contents=[prompt]
+    )
+    return response.text
+
 def generate_study_notes(text):
-    result = summarizer(text, max_length=250, min_length=50, do_sample=False)
-    return result[0]['summary_text']
+    prompt = f"Summarize the following lecture notes:\n{text}"
+    return gemini_generate(prompt)
 
 def generate_quiz(notes):
-    prompt = f"generate quiz questions: {notes}"
-    result = text_generator(prompt, max_length=512, do_sample=False)
-    return result[0]['generated_text']
+    prompt = f"Generate a quiz with questions and answers based on these notes:\n{notes}"
+    return gemini_generate(prompt)
 
 def generate_flashcards(notes):
-    prompt = f"generate flashcards: {notes}"
-    result = text_generator(prompt, max_length=512, do_sample=False)
-    return result[0]['generated_text']
+    prompt = f"Generate flashcards with question-answer pairs based on these notes:\n{notes}"
+    return gemini_generate(prompt)
 
 # Initialize session state variables
-if "transcript" not in st.session_state:
-    st.session_state.transcript = None
-if "notes" not in st.session_state:
-    st.session_state.notes = None
-if "quiz" not in st.session_state:
-    st.session_state.quiz = None
-if "flashcards" not in st.session_state:
-    st.session_state.flashcards = None
+for key in ("transcript", "notes", "quiz", "flashcards"):
+    if key not in st.session_state:
+        st.session_state[key] = None
 
 with st.form("upload_form"):
-    audio_file = st.file_uploader("Upload audio file (wav, mp3, m4a)", type=["wav", "mp3", "m4a"])
+    audio_file = st.file_uploader("Upload audio file (wav, mp3, m4a, ogg)", type=["wav", "mp3", "m4a", "ogg"])
     submit = st.form_submit_button("Process Audio")
 
 if submit and audio_file:
@@ -86,7 +83,7 @@ if submit and audio_file:
             st.session_state.flashcards = None
 
         except Exception as e:
-            st.error(f"Error during processing: {e}")
+            st.error(f"Error during audio processing: {e}")
             st.session_state.transcript = None
             st.session_state.notes = None
             st.session_state.quiz = None
@@ -99,19 +96,19 @@ if st.session_state.transcript:
     if len(st.session_state.transcript) > 50:
 
         if st.session_state.notes is None:
-            with st.spinner("Generating study notes..."):
+            with st.spinner("Generating summarized notes..."):
                 notes = generate_study_notes(st.session_state.transcript)
                 st.session_state.notes = notes
 
         st.subheader("Summarized Study Notes")
         st.write(st.session_state.notes)
 
-        # Buttons to generate quiz and flashcards
         col1, col2 = st.columns(2)
         with col1:
             if st.button("Generate Quiz"):
                 with st.spinner("Generating quiz questions..."):
                     st.session_state.quiz = generate_quiz(st.session_state.notes)
+
         with col2:
             if st.button("Generate Flashcards"):
                 with st.spinner("Generating flashcards..."):
@@ -129,6 +126,7 @@ if st.session_state.transcript:
         st.info("Transcript is too short to summarize.")
 
 st.write("### Feedback and Suggestions")
+
 feedback = st.text_area("Provide any feedback here:")
 if st.button("Submit Feedback"):
     if feedback.strip():
