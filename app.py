@@ -59,6 +59,16 @@ def generate_flashcards(notes):
     result = text_generator(prompt, max_length=512, do_sample=False)
     return result[0]['generated_text']
 
+# Initialize session state variables
+if "transcript" not in st.session_state:
+    st.session_state.transcript = None
+if "notes" not in st.session_state:
+    st.session_state.notes = None
+if "quiz" not in st.session_state:
+    st.session_state.quiz = None
+if "flashcards" not in st.session_state:
+    st.session_state.flashcards = None
+
 with st.form("upload_form"):
     audio_file = st.file_uploader("Upload audio file (wav, mp3, m4a)", type=["wav", "mp3", "m4a"])
     submit = st.form_submit_button("Process Audio")
@@ -70,29 +80,53 @@ if submit and audio_file:
             transcript = transcribe_audio(wav_path)
             os.remove(wav_path)
 
-            st.subheader("Lecture Transcript")
-            st.write(transcript)
+            st.session_state.transcript = transcript
+            st.session_state.notes = None
+            st.session_state.quiz = None
+            st.session_state.flashcards = None
 
-            if len(transcript) > 50:
-                notes = generate_study_notes(transcript)
-                st.subheader("Summarized Study Notes")
-                st.write(notes)
-
-                if st.button("Generate Quiz"):
-                    with st.spinner("Generating quiz questions..."):
-                        quiz_text = generate_quiz(notes)
-                        st.subheader("Quiz Questions")
-                        st.write(quiz_text)
-
-                if st.button("Generate Flashcards"):
-                    with st.spinner("Generating flashcards..."):
-                        flashcards_text = generate_flashcards(notes)
-                        st.subheader("Flashcards")
-                        st.write(flashcards_text)
-            else:
-                st.info("Transcript is too short to summarize.")
         except Exception as e:
             st.error(f"Error during processing: {e}")
+            st.session_state.transcript = None
+            st.session_state.notes = None
+            st.session_state.quiz = None
+            st.session_state.flashcards = None
+
+if st.session_state.transcript:
+    st.subheader("Lecture Transcript")
+    st.write(st.session_state.transcript)
+
+    if len(st.session_state.transcript) > 50:
+
+        if st.session_state.notes is None:
+            with st.spinner("Generating study notes..."):
+                notes = generate_study_notes(st.session_state.transcript)
+                st.session_state.notes = notes
+
+        st.subheader("Summarized Study Notes")
+        st.write(st.session_state.notes)
+
+        # Buttons to generate quiz and flashcards
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Generate Quiz"):
+                with st.spinner("Generating quiz questions..."):
+                    st.session_state.quiz = generate_quiz(st.session_state.notes)
+        with col2:
+            if st.button("Generate Flashcards"):
+                with st.spinner("Generating flashcards..."):
+                    st.session_state.flashcards = generate_flashcards(st.session_state.notes)
+
+        if st.session_state.quiz:
+            st.subheader("Quiz Questions")
+            st.write(st.session_state.quiz)
+
+        if st.session_state.flashcards:
+            st.subheader("Flashcards")
+            st.write(st.session_state.flashcards)
+
+    else:
+        st.info("Transcript is too short to summarize.")
 
 st.write("### Feedback and Suggestions")
 feedback = st.text_area("Provide any feedback here:")
