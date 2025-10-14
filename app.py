@@ -1,77 +1,76 @@
 import streamlit as st
 import speech_recognition as sr
 from transformers import pipeline
-import os
 import soundfile as sf
 import tempfile
+from pydub import AudioSegment
+import os
 
-# Initialize Llama-based summarizer pipeline from Hugging Face
-summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
-
-# Streamlit page configuration
 st.set_page_config(page_title="Lecture Voice-to-Notes Generator", layout="centered")
 
-# Title and Description
+# Load summarizer
+@st.cache_resource
+def load_summarizer():
+    return pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
+
+summarizer = load_summarizer()
+
 st.title("Lecture Voice-to-Notes Generator")
 st.write("""
-    Welcome to the Lecture Voice-to-Notes Generator! 
-    This tool will transcribe your lecture audio and summarize the content into clear notes, quizzes, and flashcards.
+Upload a lecture recording, and this app will transcribe it into text and generate summarized notes.
 """)
 
-# File uploader for audio input (lecture)
-audio_file = st.file_uploader("Upload Your Lecture Audio", type=["wav", "mp3", "m4a"])
+audio_file = st.file_uploader("Upload Lecture Audio", type=["wav", "mp3", "m4a"])
 
-# Audio transcription function using SpeechRecognition
-def transcribe_audio(audio_file):
+def convert_to_wav(uploaded_file):
+    temp_input = tempfile.NamedTemporaryFile(delete=False)
+    temp_input.write(uploaded_file.read())
+    temp_input.flush()
+
+    temp_output = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+    audio = AudioSegment.from_file(temp_input.name)
+    audio.export(temp_output.name, format="wav")
+    return temp_output.name
+
+def transcribe_audio(file_path):
     recognizer = sr.Recognizer()
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
-        tmpfile.write(audio_file.read())
-        tmpfile.close()
+    with sr.AudioFile(file_path) as source:
+        audio_data = recognizer.record(source)
+        try:
+            return recognizer.recognize_google(audio_data)
+        except sr.UnknownValueError:
+            return "Sorry, could not understand the audio."
+        except sr.RequestError:
+            return "Speech recognition service is unavailable."
 
-        # Use SpeechRecognition to transcribe the uploaded audio file
-        audio = sr.AudioFile(tmpfile.name)
-        with audio as source:
-            audio_data = recognizer.record(source)
-            try:
-                # Perform speech-to-text using Google's API (can be replaced with a different model)
-                transcript = recognizer.recognize_google(audio_data)
-                return transcript
-            except sr.UnknownValueError:
-                return "Sorry, we could not understand the audio."
-            except sr.RequestError:
-                return "There was an error with the speech-to-text service."
+def generate_study_notes(text):
+    result = summarizer(text, max_length=250, min_length=50, do_sample=False)
+    return result[0]['summary_text']
 
-# Function to generate study notes using summarization
-def generate_study_notes(transcript):
-    summary = summarizer(transcript, max_length=250, min_length=50, do_sample=False)
-    return summary[0]['summary_text']
-
-# Display the uploaded file's transcription and generate notes
 if audio_file:
-    st.audio(audio_file, format="audio/wav")
-    st.write("Transcribing the lecture...")
+    st.audio(audio_file)
+    st.info("Processing your audio. Please wait...")
 
-    transcript = transcribe_audio(audio_file)
-    st.write("### Lecture Transcript")
+    wav_path = convert_to_wav(audio_file)
+    transcript = transcribe_audio(wav_path)
+
+    st.subheader("Lecture Transcript")
     st.write(transcript)
 
-    if len(transcript) > 50:  # Only summarize if the transcript is long enough
-        st.write("### Summarized Study Notes")
-        notes = generate_study_notes(transcript)
-        st.write(notes)
+    if len(transcript) > 50:
+        st.subheader("Summarized Study Notes")
+        summary = generate_study_notes(transcript)
+        st.write(summary)
 
-        # Optional: Generate quizzes or flashcards from notes
         if st.button("Generate Quiz"):
-            st.write("### Quiz Generated from Notes")
-            quiz = f"Create a quiz based on these notes: {notes}"
-            st.write(quiz)
-        if st.button("Generate Flashcards"):
-            st.write("### Flashcards Generated")
-            flashcards = f"Create flashcards based on these notes: {notes}"
-            st.write(flashcards)
+            st.write("Quiz based on notes:")
+            st.write(f"Create a quiz using: {summary}")
 
-# Feedback Section (Logging)
-st.write("### Feedback and Suggestions")
-feedback = st.text_area("Provide any feedback here:")
+        if st.button("Generate Flashcards"):
+            st.write("Flashcards based on notes:")
+            st.write(f"Create flashcards using: {summary}")
+
+st.write("### Feedback")
+feedback = st.text_area("Provide feedback here:")
 if st.button("Submit Feedback"):
     st.write("Thank you for your feedback!")
