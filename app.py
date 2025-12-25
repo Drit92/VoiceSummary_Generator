@@ -77,13 +77,13 @@ def generate_quiz(notes):
     sentences = [s.strip() for s in notes.split('.') if len(s) > 10]
     quiz_questions = []
     
-    # Question templates
+    # Question templates - FIXED SYNTAX ERROR
     templates = [
         ("What is/are", "the main topic", "mentioned"),
         ("According to the notes, what", "key point", "is discussed"),
         ("Which of these", "concept", "is explained"),
         ("The notes mention that", "topic", "involves"),
-        ("What does the lecture explain about", "subject", "?)
+        ("What does the lecture explain about", "subject", "what?")  # ← FIXED!
     ]
     
     for i, sentence in enumerate(sentences[:5]):
