@@ -4,6 +4,7 @@ import tempfile
 from pydub import AudioSegment
 import os
 import re
+import streamlit.components.v1 as components  # Only for flashcards
 
 st.set_page_config(
     page_title="Lecture Voice-to-Notes", 
@@ -47,21 +48,16 @@ def transcribe_audio(file_path):
         return f"Error: {str(e)}"
 
 def generate_summary(text):
-    """Smart rule-based summarization"""
     if len(text) < 30:
         return "Transcript too short."
     
-    # Extract key sentences (longest + first/last)
     sentences = re.split(r'[.!?]+', text)
     sentences = [s.strip() for s in sentences if len(s) > 20]
-    
-    # Take top 3 longest sentences
     sentences.sort(key=len, reverse=True)
     summary = ' '.join(sentences[:3])
     return summary[:300] + "..." if len(summary) > 300 else summary
 
 def generate_quiz(notes):
-    """Professional quiz generator"""
     sentences = [s.strip() for s in re.split(r'[.!?]+', notes) if len(s) > 15]
     quiz = []
     
@@ -73,22 +69,25 @@ def generate_quiz(notes):
     return "**📝 Quiz (with Answers)**\n\n" + "\n\n".join(quiz)
 
 def generate_flashcards(notes):
-    """Anki-ready flashcards"""
+    """Generate flashcards with ONE-WORD answers"""
     sentences = [s.strip() for s in re.split(r'[.!?]+', notes) if len(s) > 10]
     flashcards = []
     
-    for i, sentence in enumerate(sentences[:6]):
-        words = sentence.split()
+    for i, sentence in enumerate(sentences[:8]):  # More cards
+        words = re.findall(r'\b\w+\b', sentence.lower())
         if len(words) > 4:
-            front = f"**Q{i+1}:** {' '.join(words[:3])}"
-            back = f"**A{i+1}:** {' '.join(words[3:15])}..."
+            # Question from first 3-4 words
+            question = f"Q{i+1}: {' '.join(words[:4])}?"
+            # ONE WORD answer (most frequent or key noun)
+            key_words = [w for w in words[4:] if len(w) > 4]
+            answer = key_words[0].upper() if key_words else "KEY"
         else:
-            front = f"**Q{i+1}:** {sentence[:50]}"
-            back = f"**A{i+1}:** {sentence}"
+            question = f"Q{i+1}: {sentence[:40]}?"
+            answer = words[-1].upper() if words else "TERM"
         
-        flashcards.append(f"{front}\n\n{back}")
+        flashcards.append(f"Front: {question}\nBack: {answer}")
     
-    return "**📚 Flashcards**\n\n" + "\n\n---\n\n".join(flashcards)
+    return "\n\n".join(flashcards)
 
 # Main app
 if audio_file:
@@ -113,7 +112,7 @@ if audio_file:
     
     with col2:
         if st.button("🗑️ Clear"):
-            for key in st.session_state.keys():
+            for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.rerun()
     
@@ -143,17 +142,76 @@ if audio_file:
             </div>
             """, unsafe_allow_html=True)
         
+        # 🆕 INTERACTIVE FLASHCARDS
         if 'flashcards' in st.session_state:
-            st.subheader("📚 Flashcards")
-            st.markdown(f"""
-            <div style="background: #d4edda; padding: 20px; border-radius: 10px; border-left: 5px solid #28a745;">
-                {st.session_state.flashcards}
-            </div>
-            """, unsafe_allow_html=True)
+            st.subheader("🃏 Interactive Flashcards")
+            
+            # Parse flashcards
+            flashcards_text = st.session_state.flashcards.strip()
+            lines = flashcards_text.splitlines()
+            
+            cards = []
+            current_front, current_back = "", ""
+            
+            for line in lines:
+                line = line.strip()
+                if line.startswith("Front:"):
+                    if current_front and current_back:
+                        cards.append((current_front.strip(), current_back.strip()))
+                    current_front = line[6:]
+                    current_back = ""
+                elif line.startswith("Back:"):
+                    current_back = line[5:].strip()
+            
+            if current_front and current_back:
+                cards.append((current_front.strip(), current_back.strip()))
+            
+            # Generate lightweight HTML flashcards
+            if cards:
+                cards_html = ""
+                for i, (front, back) in enumerate(cards[:8], 1):  # Max 8 cards
+                    cards_html += f"""
+                    <div class="card" data-answer="{back}">
+                      <div class="card-inner">
+                        <div class="card-front">
+                          <span class="num">#{i}</span>
+                          <div class="q">{front[:60]}{'...' if len(front)>60 else ''}</div>
+                        </div>
+                        <div class="card-back">
+                          <div class="answer">{back}</div>
+                        </div>
+                      </div>
+                    </div>
+                    """
+                
+                html_content = f"""
+                <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;padding:15px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:15px;">
+                {cards_html}
+                </div>
+                <style>
+                .card{{width:240px;height:140px;perspective:800px;cursor:pointer;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,0.2);transition:transform 0.2s;}}
+                .card:hover{{transform:translateY(-3px);}}
+                .card-inner{{position:relative;width:100%;height:100%;transition:transform 0.6s;border-radius:12px;}}
+                .card.flipped .card-inner{{transform:rotateY(180deg);}}
+                .card-front,.card-back{{position:absolute;width:100%;height:100%;backface-visibility:hidden;border-radius:12px;padding:18px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;font-family:Arial,sans-serif;box-sizing:border-box;overflow:hidden;}}
+                .card-front{{background:linear-gradient(135deg,#ffecd2,#fcb69f);color:#2c3e50;}}
+                .card-back{{background:linear-gradient(135deg,#4facfe,#00f2fe);color:white;transform:rotateY(180deg);}}
+                .num{{font-size:16px;font-weight:bold;background:rgba(255,255,255,0.3);padding:6px 12px;border-radius:20px;margin-bottom:10px;}}
+                .q{{font-size:14px;font-weight:500;line-height:1.3;max-height:70px;overflow:hidden;}}
+                .answer{{font-size:36px;font-weight:800;text-transform:uppercase;letter-spacing:2px;text-shadow:1px 1px 3px rgba(0,0,0,0.3);}}
+                @media(max-width:600px){{.card{{width:90vw;max-width:280px;}}}}
+                </style>
+                <script>
+                document.querySelectorAll('.card').forEach(c=>c.onclick=()=>c.classList.toggle('flipped'));
+                </script>
+                """
+                
+                components.html(html_content, height=280)
+            else:
+                st.warning("No flashcards generated. Try longer audio.")
 
 else:
     st.info("👆 Upload audio file to get started!")
     st.balloons()
 
 st.markdown("---")
-st.markdown("*✅ Pure Python • No ML models • Lightning fast • Production ready*")
