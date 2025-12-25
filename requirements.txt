@@ -5,3 +5,7 @@ SpeechRecognition
 soundfile
 pydub
 google-genai
+pydub
+sentencepiece
+protobuf
+accelerate
