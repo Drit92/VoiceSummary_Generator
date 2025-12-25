@@ -83,7 +83,7 @@ def generate_quiz(notes):
         ("According to the notes, what", "key point", "is discussed"),
         ("Which of these", "concept", "is explained"),
         ("The notes mention that", "topic", "involves"),
-        ("What does the lecture explain about", "subject", "what?")  # ← FIXED!
+        ("What does the lecture explain about", "subject", "what")  # ← FIXED!
     ]
     
     for i, sentence in enumerate(sentences[:5]):
