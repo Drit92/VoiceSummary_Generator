@@ -142,73 +142,78 @@ if audio_file:
             </div>
             """, unsafe_allow_html=True)
         
-        # 🆕 INTERACTIVE FLASHCARDS
-        if 'flashcards' in st.session_state:
-            st.subheader("🃏 Interactive Flashcards")
-            
-            # Parse flashcards
-            flashcards_text = st.session_state.flashcards.strip()
-            lines = flashcards_text.splitlines()
-            
-            cards = []
-            current_front, current_back = "", ""
-            
-            for line in lines:
-                line = line.strip()
-                if line.startswith("Front:"):
-                    if current_front and current_back:
-                        cards.append((current_front.strip(), current_back.strip()))
-                    current_front = line[6:]
-                    current_back = ""
-                elif line.startswith("Back:"):
-                    current_back = line[5:].strip()
-            
+        # 🆕 INTERACTIVE FLASHCARDS (FIXED)
+if 'flashcards' in st.session_state:
+    st.subheader("🃏 Interactive Flashcards")
+    
+    # Parse flashcards
+    flashcards_text = st.session_state.flashcards.strip()
+    lines = flashcards_text.splitlines()
+    
+    cards = []
+    current_front, current_back = "", ""
+    
+    for line in lines:
+        line = line.strip()
+        if line.startswith("Front:"):
             if current_front and current_back:
                 cards.append((current_front.strip(), current_back.strip()))
-            
-            # Generate lightweight HTML flashcards
-            if cards:
-                cards_html = ""
-                for i, (front, back) in enumerate(cards[:8], 1):  # Max 8 cards
-                    cards_html += f"""
-                    <div class="card" data-answer="{back}">
-                      <div class="card-inner">
-                        <div class="card-front">
-                          <span class="num">#{i}</span>
-                          <div class="q">{front[:60]}{'...' if len(front)>60 else ''}</div>
-                        </div>
-                        <div class="card-back">
-                          <div class="answer">{back}</div>
-                        </div>
-                      </div>
-                    </div>
-                    """
-                
-                html_content = f"""
-                <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;padding:15px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:15px;">
-                {cards_html}
+            current_front = line[6:]
+            current_back = ""
+        elif line.startswith("Back:"):
+            current_back = line[5:].strip()
+    
+    if current_front and current_back:
+        cards.append((current_front.strip(), current_back.strip()))
+    
+    # Generate FIXED HTML flashcards
+    if cards:
+        cards_html = ""
+        for i, (front, back) in enumerate(cards[:8], 1):
+            cards_html += f"""
+            <div class="card">
+              <div class="card-inner">
+                <div class="card-front">
+                  <span class="num">#{i}</span>
+                  <div class="q">{front[:60]}{'...' if len(front)>60 else ''}</div>
                 </div>
-                <style>
-                .card{{width:240px;height:140px;perspective:800px;cursor:pointer;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,0.2);transition:transform 0.2s;}}
-                .card:hover{{transform:translateY(-3px);}}
-                .card-inner{{position:relative;width:100%;height:100%;transition:transform 0.6s;border-radius:12px;}}
-                .card.flipped .card-inner{{transform:rotateY(180deg);}}
-                .card-front,.card-back{{position:absolute;width:100%;height:100%;backface-visibility:hidden;border-radius:12px;padding:18px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;font-family:Arial,sans-serif;box-sizing:border-box;overflow:hidden;}}
-                .card-front{{background:linear-gradient(135deg,#ffecd2,#fcb69f);color:#2c3e50;}}
-                .card-back{{background:linear-gradient(135deg,#4facfe,#00f2fe);color:white;transform:rotateY(180deg);}}
-                .num{{font-size:16px;font-weight:bold;background:rgba(255,255,255,0.3);padding:6px 12px;border-radius:20px;margin-bottom:10px;}}
-                .q{{font-size:14px;font-weight:500;line-height:1.3;max-height:70px;overflow:hidden;}}
-                .answer{{font-size:36px;font-weight:800;text-transform:uppercase;letter-spacing:2px;text-shadow:1px 1px 3px rgba(0,0,0,0.3);}}
-                @media(max-width:600px){{.card{{width:90vw;max-width:280px;}}}}
-                </style>
-                <script>
-                document.querySelectorAll('.card').forEach(c=>c.onclick=()=>c.classList.toggle('flipped'));
-                </script>
-                """
-                
-                components.html(html_content, height=280)
-            else:
-                st.warning("No flashcards generated. Try longer audio.")
+                <div class="card-back">
+                  <span class="answer">{back}</span>
+                </div>
+              </div>
+            </div>
+            """
+        
+        html_content = f"""
+        <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:15px;">
+        {cards_html}
+        </div>
+        <style>
+        .card{{width:260px;height:160px;perspective:800px;cursor:pointer;border-radius:15px;box-shadow:0 8px 25px rgba(0,0,0,0.2);transition:transform 0.2s;}}
+        .card:hover{{transform:translateY(-5px);}}
+        .card-inner{{position:relative;width:100%;height:100%;transition:transform 0.6s ease;border-radius:15px;transform-style:preserve-3d;}}
+        .card.flipped .card-inner{{transform:rotateY(180deg);}}
+        .card-front,.card-back{{position:absolute;width:100%;height:100%;backface-visibility:hidden;border-radius:15px;padding:20px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-sizing:border-box;}}
+        .card-front{{background:linear-gradient(135deg,#ffecd2 0%,#fcb69f 100%);color:#2c3e50;font-weight:500;}}
+        .card-back{{background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);color:white;transform:rotateY(180deg);}}
+        .num{{position:absolute;top:10px;left:15px;font-size:14px;font-weight:700;background:rgba(255,255,255,0.9);padding:5px 10px;border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,0.1);}}
+        .q{{font-size:15px;line-height:1.4;max-height:90px;overflow:hidden;padding-top:25px;}}
+        .answer{{font-size:44px;font-weight:900;text-transform:uppercase;letter-spacing:4px;text-shadow:2px 2px 8px rgba(0,0,0,0.4);animation:pulse 0.5s ease-out;}}
+        @keyframes pulse{{0%{{transform:scale(0.8);opacity:0;}}100%{{transform:scale(1);opacity:1;}}}}
+        @media(max-width:600px){{.card{{width:90vw;max-width:300px;height:140px;}}.answer{{font-size:36px;letter-spacing:2px;}}}}
+        </style>
+        <script>
+        document.querySelectorAll('.card').forEach((card, index) => {{
+            card.addEventListener('click', () => {{
+                card.classList.toggle('flipped');
+            }});
+        }});
+        </script>
+        """
+        
+        components.html(html_content, height=320)
+    else:
+        st.warning("No flashcards generated. Try longer audio.")
 
 else:
     st.info("👆 Upload audio file to get started!")
